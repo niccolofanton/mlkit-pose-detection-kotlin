@@ -37,10 +37,12 @@
 
     <TextView
         android:id="@+id/text_view_id"
-        tools:layout_editor_absoluteX="0dp"
-        tools:layout_editor_absoluteY="0dp"
-        android:layout_height="match_parent"
         android:layout_width="match_parent"
-        tools:ignore="MissingConstraints" />
+        android:layout_height="match_parent"
+        android:background="#00040404"
+        android:textColor="#00FF19"
+        tools:ignore="MissingConstraints"
+        tools:layout_editor_absoluteX="0dp"
+        tools:layout_editor_absoluteY="0dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

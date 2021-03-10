@@ -115,28 +115,35 @@ class RectOverlay constructor(context: Context?, attributeSet: AttributeSet?) :
         invalidate();
     }
 
-    internal fun drawLine2(
-        x1: Float,
-        y1: Float,
-        x2: Float,
-        y2: Float
+    internal fun drawNeck(
+        _occhioSx: PoseLandmark?,
+        _occhioDx: PoseLandmark?,
+        _spallaSx: PoseLandmark?,
+        _spallaDx: PoseLandmark?
     ) {
 
-         val paint2 = Paint().apply {
-            color = Color.GREEN
-            // Smooths out edges of what is drawn without affecting shape.
-            isAntiAlias = true
-            // Dithering affects how colors with higher-precision than the device are down-sampled.
-            isDither = true
-            style = Paint.Style.STROKE // default: FILL
-            strokeJoin = Paint.Join.ROUND // default: MITER
-            strokeCap = Paint.Cap.ROUND // default: BUTT
-            strokeWidth = 10f // default: Hairline-width (really thin)
-        }
+        val xmul = 3.3f;
+        val ymul = 3.3f;
 
-        val mul = 1f;
+
+        val occhioSx = _occhioSx!!.position
+        val occhioDx = _occhioDx!!.position
+        val spallaSx = _spallaSx!!.position
+        val spallaDx = _spallaDx!!.position
+
+
+        val fineColloX =  occhioDx.x +  ((occhioSx.x - occhioDx.x) / 2);
+        val fineColloY = occhioDx.y + ((occhioSx.y - occhioDx.y) / 2);
+
+        val inizioColloX = spallaDx.x + ((spallaSx.x - spallaDx.x ) / 2);
+        val inizioColloY = spallaDx.y + ((spallaSx.y - spallaDx.y) / 2);
+
         extraCanvas.drawLine(
-            x1 * mul, y1* mul, x2* mul, y2* mul, paint2
+            (fineColloX * xmul) - 250, fineColloY* ymul, (inizioColloX* xmul) -250, inizioColloY* ymul, paint
+        )
+
+        extraCanvas.drawLine(
+            (occhioSx.x * xmul) - 250, occhioSx.y* ymul, (occhioDx.x* xmul) -250, occhioDx.y* ymul, paint
         )
         invalidate();
     }
@@ -200,6 +207,23 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
+    fun getNeckAngle(
+        orecchio: PoseLandmark, spalla: PoseLandmark
+    ): Double {
+
+        var result = Math.toDegrees(atan2( spalla.getPosition().y.toDouble() - spalla.getPosition().y,
+            (spalla.getPosition().x + 100 ).toDouble() - spalla.getPosition().x)
+                - atan2(orecchio.getPosition().y - spalla.getPosition().y,
+            orecchio.getPosition().x - spalla.getPosition().x))
+
+        result = Math.abs(result) // Angle should never be negative
+
+        if (result > 180) {
+            result = 360.0 - result // Always get the acute representation of the angle
+        }
+        return result
+    }
+
     private fun onTextFound(pose: Pose)  {
         try {
 
@@ -228,48 +252,61 @@ class MainActivity : AppCompatActivity() {
             val leftFootIndex = pose.getPoseLandmark(PoseLandmark.LEFT_FOOT_INDEX)
             val rightFootIndex = pose.getPoseLandmark(PoseLandmark.RIGHT_FOOT_INDEX)
 
+            val occhioSx = pose.getPoseLandmark(PoseLandmark.LEFT_EYE);
+            val occhioDx = pose.getPoseLandmark(PoseLandmark.RIGHT_EYE);
+
+            val orecchioDx = pose.getPoseLandmark(PoseLandmark.RIGHT_EAR);
+            val orecchioSx = pose.getPoseLandmark(PoseLandmark.LEFT_EAR);
+
 
             val builder = StringBuilder()
-
-
-            val occhioSx = pose.getPoseLandmark(PoseLandmark.LEFT_EYE_INNER);
-            val occhioDx = pose.getPoseLandmark(PoseLandmark.RIGHT_EYE_INNER);
-
-//            val fineColloX = occhioSx.getPosition().x + ((occhioDx.getPosition().x - occhioSx.getPosition().x) / 2);
-//            val fineColloY = occhioSx.getPosition().y + ((occhioDx.getPosition().y - occhioSx.getPosition().y) / 2);
-//            val inizioColloX = leftShoulder.getPosition().x + ((rightShoulder.getPosition().x - leftShoulder.getPosition().x) / 2);
-//            val inizioColloY =leftShoulder.getPosition().y + ((rightShoulder.getPosition().y - leftShoulder.getPosition().y) / 2);
-//            rect_overlay.drawLine2(leftShoulder.getPosition().x, leftShoulder.getPosition().y, rightShoulder.getPosition().x, rightShoulder.getPosition().y)
-//            builder.append("$inizioColloX, $inizioColloY, $fineColloX, $fineColloY \n")
-
-            rect_overlay.drawLine(occhioSx, occhioDx)
-
-
-            builder.append("${occhioSx!!.position.x} ${occhioSx!!.position.y} \n")
-
-
-            if(rightShoulder != null && rightElbow != null && rightWrist != null){
-                val angoloBraccio = getAngle(
-                    rightShoulder,
-                    rightElbow,
-                    rightWrist)
-                    builder.append("${angoloBraccio.toInt()} angolo braccio DX\n")
-            }
-
-
-            if(rightElbow != null && rightWrist != null && rightPinky != null){
-                val angoloPolso = getAngle(
-                    rightElbow,
-                    rightWrist,
-                    rightPinky
-                )
-                builder.append("${angoloPolso.toInt()} polso DX\n")
-            }
-
-            textView.setText("${builder.toString()}")
-
-
             rect_overlay.clear()
+
+            // disegno il collo come la media tra occhi e orecchie
+            if( occhioSx != null && occhioDx != null && leftShoulder != null && rightShoulder != null  ){
+                rect_overlay.drawNeck(occhioSx, occhioDx, leftShoulder, rightShoulder);
+            }
+
+            // disegno il collo visto lateralmente da sinistra
+            if(orecchioSx != null && leftShoulder != null){
+                rect_overlay.drawLine(orecchioSx, leftShoulder)
+                var angoloCollo = getNeckAngle(orecchioSx, leftShoulder);
+                builder.append("${90 - angoloCollo.toInt()} collo (da sx) \n")
+            }
+
+            // disegno il collo visto lateralmente da destra
+            if(orecchioDx != null && rightShoulder != null){
+                rect_overlay.drawLine(orecchioDx, rightShoulder)
+                var angoloCollo = getNeckAngle(orecchioDx, rightShoulder);
+                builder.append("${90 - angoloCollo.toInt()} collo (da dx) \n")
+            }
+
+            // angolo busto destra
+            if(rightShoulder != null && rightHip != null && rightKnee != null){
+                var angoloBusto = getAngle(rightShoulder, rightHip, rightKnee);
+                builder.append("${ 180 - angoloBusto.toInt()} busto (da dx) \n")
+            }
+
+            // angolo busto sinistra
+            if(leftShoulder != null && leftHip != null && leftKnee != null){
+                var angoloBusto = getAngle(leftShoulder, leftHip, leftKnee);
+                builder.append("${180 - angoloBusto.toInt()} busto (da sx) \n")
+            }
+
+
+            // angolo gamba destra
+            if( rightHip != null && rightKnee != null  && rightAnkle != null){
+                var angoloBusto = getAngle( rightHip, rightKnee, rightAnkle);
+                builder.append("${ 180 - angoloBusto.toInt()} gamba (da dx) \n")
+            }
+
+            // angolo gamba sinistra
+            if( leftHip != null && leftKnee != null  && leftAnkle != null){
+                var angoloBusto = getAngle( leftHip, leftKnee,leftAnkle);
+                builder.append("${ 180 - angoloBusto.toInt()} gamba (da sx) \n")
+            }
+
+
             if(leftShoulder != null && rightShoulder != null){
                 rect_overlay.drawLine(leftShoulder, rightShoulder)
             }
@@ -365,6 +402,9 @@ class MainActivity : AppCompatActivity() {
             if(rightHeel != null &&  rightFootIndex != null){
                 rect_overlay.drawLine(rightHeel, rightFootIndex)
             }
+
+
+            textView.setText("${builder.toString()}")
 
         } catch (e: java.lang.Exception) {
             Toast.makeText(this@MainActivity, "Errore", Toast.LENGTH_SHORT).show()
